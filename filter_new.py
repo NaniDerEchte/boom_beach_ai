@@ -74,14 +74,21 @@ def filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_di
         return
     
     frame_paths = []
-    for subdir, _, files in os.walk(input_dir):
+    for root, _, files in os.walk(input_dir):
         for file in files:
             if file.endswith('.jpg'):
-                frame_path = os.path.join(subdir, file)
-                frame_paths.append((frame_path, reference_frames, threshold, output_dir, non_gameplay_dir, input_dir))
+                frame_path = os.path.join(root, file)
+                frame_paths.append((frame_path, reference_frames, threshold, output_dir, non_gameplay_dir))
     
-    with Pool() as pool:
-        pool.map(process_frame, frame_paths)
+    # Berechne die optimale Anzahl von Prozessen basierend auf CPU und RAM
+    max_processes = min(cpu_count(), int(psutil.virtual_memory().available / (psutil.virtual_memory().total * 0.1)))
+    max_processes = max(1, int(max_processes * 0.9))  # Nutze maximal 90% der verfügbaren Ressourcen
+    
+    print(f"Verwende {max_processes} Prozesse")
+    
+    with Pool(processes=max_processes) as pool:
+        for _ in pool.imap_unordered(process_frame, frame_paths):
+            pass
 
 if __name__ == "__main__":
     input_dir = '/home/nani/boom_beach_ai/frames/krabbe_bilder/'
