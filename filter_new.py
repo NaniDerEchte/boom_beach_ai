@@ -3,7 +3,8 @@ import cv2
 from skimage.metrics import structural_similarity as ssim
 import numpy as np
 import shutil
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
+import psutil
 
 def preprocess_reference_frames(reference_dir):
     reference_frames = []
@@ -24,14 +25,14 @@ def is_gameplay_frame(frame, reference_frames, threshold=0.1):
         
         # Dynamische Anpassung der Fenstergröße
         win_size = min(7, min(frame_resized.shape[:2]) - 1)
-        win_size = max(3, win_size)  # Stellen Sie sicher, dass win_size mindestens 3 und ungerade ist
+        win_size = max(3, win_size)
         if win_size % 2 == 0:
             win_size -= 1
         
         try:
             score = ssim(frame_resized, reference_frame_resized, 
                          win_size=win_size, 
-                         channel_axis=-1,  # Annahme: Farbkanäle sind die letzte Dimension
+                         channel_axis=-1,  # Für Farbbilder
                          data_range=255)
             if score < threshold:
                 return True
