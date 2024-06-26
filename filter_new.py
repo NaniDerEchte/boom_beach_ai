@@ -16,7 +16,7 @@ def preprocess_reference_frames(reference_dir):
                 reference_frames.append(reference_frame)
     return reference_frames
 
-def is_gameplay_frame(frame, reference_frames, threshold=0.1):
+def is_gameplay_frame(frame, reference_frames, threshold=0.2):
     for reference_frame in reference_frames:
         min_height = min(frame.shape[0], reference_frame.shape[0])
         min_width = min(frame.shape[1], reference_frame.shape[1])
@@ -63,7 +63,7 @@ def process_frame(args):
         print(f"Fehler bei der Verarbeitung von {frame_path}: {e}")
 
 
-def filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_dir, threshold=0.1):
+def filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_dir, threshold=0.2):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     if not os.path.exists(non_gameplay_dir):
@@ -82,8 +82,8 @@ def filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_di
                 frame_paths.append((frame_path, reference_frames, threshold, output_dir, non_gameplay_dir))
     
     # Berechne die optimale Anzahl von Prozessen basierend auf CPU und RAM
-    max_processes = min(cpu_count(), int(psutil.virtual_memory().available / (psutil.virtual_memory().total * 0.1)))
-    max_processes = max(1, int(max_processes * 0.9))  # Nutze maximal 90% der verfügbaren Ressourcen
+    max_processes = min(cpu_count(), int(psutil.virtual_memory().available / (psutil.virtual_memory().total * 0.2)))
+    max_processes = max(1, int(max_processes * 0.90))  # Nutze maximal 90% der verfügbaren Ressourcen
     
     print(f"Verwende {max_processes} Prozesse")
     
@@ -93,7 +93,7 @@ def filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_di
 
 if __name__ == "__main__":
     input_dir = '/home/nani/boom_beach_ai/frames/krabbe_bilder/'
-    output_dir = '/home/nani/boom_beach_ai/frames/filtered_frames/Bane YT/'
-    non_gameplay_dir = '/home/nani/boom_beach_ai/frames/non_gameplay_frames/YT Bane/'
+    output_dir = '/home/nani/boom_beach_ai/frames/filtered_frames/'
+    non_gameplay_dir = '/home/nani/boom_beach_ai/frames/non_gameplay_frames/'
     reference_dir = '/home/nani/boom_beach_ai/frames/reference_frame/'
-    filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_dir, threshold=0.1)
+    filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_dir, threshold=0.2)
