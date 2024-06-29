@@ -10,7 +10,7 @@ import shutil
 
 
 
-def is_gameplay_frame(frame, reference_frames, threshold=0.3):
+def is_gameplay_frame(frame, reference_frames, threshold=0.2):
 
     gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -46,7 +46,7 @@ def load_reference_frames(reference_dir):
 
 
 
-def filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_dir, threshold=0.3):
+def filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_dir, threshold=0.2):
 
     if not os.path.exists(output_dir):
 
@@ -108,5 +108,5 @@ non_gameplay_dir = '/home/nani/boom_beach_ai/frames/non_gameplay_frames/'
 
 reference_dir = '/home/nani/boom_beach_ai/frames/reference_frame/'  # Ordner mit mehreren Referenzbildern
 
-filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_dir, threshold=0.25)
+filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_dir, threshold=0.2)
 
