@@ -173,3 +173,4 @@ for epoch in range(start_epoch, num_epochs):
 final_model_path = os.path.join(checkpoint_dir, 'final_model.pth')
 torch.save(model.state_dict(), final_model_path)
 print(f"Finales Modell gespeichert als '{final_model_path}'")
+
