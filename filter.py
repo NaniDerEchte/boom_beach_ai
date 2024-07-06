@@ -53,7 +53,7 @@ def filter_gameplay_frames(input_dir, output_dir, non_gameplay_dir, reference_di
         for file in files:
             if file.endswith('.jpg'):
                 frame_paths.append(os.path.join(subdir, file))
-    
+   #### !!! Bitte für jeden CPU Kern ca 5.7-6 GB RAM Reservieren abhängig aber auch vom Referenzordner !!! ############
     num_cores = 26  # Hier wird die Anzahl der Kerne auf 26 festgelegt
     pool = mp.Pool(num_cores)
     
