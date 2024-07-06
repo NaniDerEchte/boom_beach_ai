@@ -1,10 +1,8 @@
-# Version 6 (Stable)
-
+import os
 import torch
 import torch.multiprocessing as mp
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
-import os
 import cv2
 import time
 import re
@@ -12,9 +10,15 @@ import torch.nn.functional as F
 import torch.nn as nn
 from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm
+import psutil
+
+# Optimierungen für CPU
+available_cores = psutil.cpu_count(logical=False)  # Nur physische Kerne
+target_cores = int(available_cores * 0.95)  # Ziel: 95% der verfügbaren Kerne
+torch.set_num_threads(target_cores)
 
 # Definieren Sie einen Ordner für die Zwischenspeicherung des Modells
-checkpoint_dir = '/home/nani/boom_beach_ai/checkpoints/'
+checkpoint_dir = '/home/nani/boom_beach_ai/checkpoints2/'
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 class BoomBeachDataset(Dataset):
@@ -43,10 +47,8 @@ class BoomBeachDataset(Dataset):
             image = self.transform(image)
         return image, img_path
 
-# Definieren Sie die Transformationen
+# Definieren Sie die Transformationen (nur Normalisierung, keine Größenänderung)
 transform = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.Resize((128, 128)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
@@ -54,16 +56,18 @@ transform = transforms.Compose([
 # Erstellen Sie den Dataset- und DataLoader
 data_dir = '/home/nani/boom_beach_ai/frames/filtered_frames/'
 dataset = BoomBeachDataset(data_dir, transform=transform)
-num_workers = mp.cpu_count()
-batch_size = 64  # Erhöhen Sie dies, wenn Ihr Speicher es zulässt
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
+num_workers = min(8, os.cpu_count())  # Begrenzen Sie die Anzahl der Worker
+batch_size = 32  # Unveränderte Batch-Größe
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, 
+                        num_workers=num_workers, pin_memory=True)
 
 # Definieren Sie das Modell
 class SimpleCNN(nn.Module):
     def __init__(self):
         super(SimpleCNN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
+        self.conv1 = nn.Conv2d(3, 32, 3, 1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, 3, 1, padding=1)
+        self.adaptive_pool = nn.AdaptiveAvgPool2d((30, 30))
         self.fc1 = nn.Linear(64 * 30 * 30, 128)
         self.fc2 = nn.Linear(128, 10)  # Angenommen, wir haben 10 Klassen
 
@@ -71,13 +75,13 @@ class SimpleCNN(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.max_pool2d(x, 2)
         x = F.relu(self.conv2(x))
-        x = F.max_pool2d(x, 2)
+        x = self.adaptive_pool(x)
         x = torch.flatten(x, 1)
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 model = SimpleCNN().to(device)
 
 # Verlustfunktion und Optimierer definieren
@@ -108,7 +112,7 @@ def load_latest_checkpoint():
     checkpoint_path = os.path.join(checkpoint_dir, latest_checkpoint)
     
     start_time = time.time()
-    checkpoint = torch.load(checkpoint_path, map_location='cpu')  # Entfernen Sie mmap=True
+    checkpoint = torch.load(checkpoint_path, map_location='cpu')
     end_time = time.time()
     print(f"Checkpoint Ladezeit: {end_time - start_time:.4f} Sekunden")
     
@@ -143,23 +147,28 @@ for epoch in range(start_epoch, num_epochs):
         if epoch == start_epoch and batch_idx < start_batch:
             continue
         
-        images = images.to(device)
-        labels = torch.zeros(images.size(0), dtype=torch.long).to(device)  # Dummy-Labels
-        
-        optimizer.zero_grad()
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        
-        running_loss += loss.item()
-        
-        # Aktualisieren Sie die Fortschrittsanzeige
-        progress_bar.set_postfix(loss=f"{loss.item():.4f}")
-        
-        # Speichern des Fortschritts
-        if (batch_idx + 1) % save_interval == 0:
-            save_checkpoint(epoch, batch_idx, model, optimizer, loss.item())
+        try:
+            images = images.to(device, non_blocking=True)
+            labels = torch.zeros(images.size(0), dtype=torch.long).to(device, non_blocking=True)  # Dummy-Labels
+            
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            
+            running_loss += loss.item()
+            
+            # Aktualisieren Sie die Fortschrittsanzeige
+            progress_bar.set_postfix(loss=f"{loss.item():.4f}")
+            
+            # Speichern des Fortschritts
+            if (batch_idx + 1) % save_interval == 0:
+                save_checkpoint(epoch, batch_idx, model, optimizer, loss.item())
+        except Exception as e:
+            print(f"Fehler in Epoch {epoch}, Batch {batch_idx}: {str(e)}")
+            print(f"Bildpfade im problematischen Batch: {img_paths}")
+            continue
     
     avg_loss = running_loss / len(dataloader)
     print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {avg_loss:.4f}')
@@ -173,4 +182,3 @@ for epoch in range(start_epoch, num_epochs):
 final_model_path = os.path.join(checkpoint_dir, 'final_model.pth')
 torch.save(model.state_dict(), final_model_path)
 print(f"Finales Modell gespeichert als '{final_model_path}'")
-
